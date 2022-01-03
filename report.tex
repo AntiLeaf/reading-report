@@ -1,0 +1,462 @@
+\documentclass{article}
+
+
+\usepackage[final]{neurips_2021}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+% \usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+
+\usepackage{graphicx, amssymb, amsmath, textcomp, booktabs}
+% \usepackage[libertine, vvarbb]{newtxmath}
+\usepackage[scr=rsfso]{mathalfa}
+%\usepackage[lining, semibold, type1]{libertine} % a bit lighter than Times--no osf in math
+\usepackage[T1]{fontenc} % best for Western European languages
+\usepackage{minted}
+\usepackage{listings, color, setspace, titlesec, fancyhdr, mdframed, multicol}
+\usepackage{fontspec}
+\usepackage{ucharclasses}
+\usepackage{xunicode, xltxtra}
+\usepackage{pdfpages}
+\usepackage{tocloft}
+\usepackage{nameref}
+\usepackage{verbatim}
+\usepackage{relsize}
+\usepackage[normalem]{ulem}
+\usepackage{color,xcolor}
+\usepackage{enumitem}
+\usepackage{amsthm}
+
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocodex}
+
+\newtheorem*{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem*{lemma}{Lemma}
+\newtheorem*{Proof}{Proof}
+\newtheorem*{corollary}{Corollary}
+
+\renewcommand*{\qedsymbol}{\qed}
+
+\floatname{algorithm}{Algorithm}
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+
+\renewcommand\refname{}
+
+\title{Reading Report for \emph{Maximum Matchings via Gaussian Elimination}}
+
+\author{%
+	AntiLeaf \\
+	School of Electronic Information and Eletrical Engineering \\
+	Shanghai Jiao Tong University \\
+	\texttt{antileaf@163.com} \\
+  % examples of more authors
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+\begin{document}
+
+	\maketitle
+
+	\begin{abstract}
+		This is a reading report for a paper \emph{Maximum matchings via Gaussian elimination}  published on the 45th FOCS, 2004. The authors of the paper are \textit{Marcin Mucha} and \textit{Piotr Sankowski} from Institute of Informatics of Warsaw University.
+			
+		In the paper, the authors introduced a fully new algorithm to solve maximum matching problems on both bipartite and general graphs. The algorithm is based mainly on theories of Linear Algebra, instead of combinatorics.
+
+		Accroding to the paper, this algorithm has running time $O(n^\omega)$, regardless of whether the graph is bipartite or not, where $\omega$ is the exponent of the best known matrix multiplication algorithm. Since $\omega < 2.38$, it breaks through the $O(n^{2.5})$ barrier held by the Edmonds' Blossom algorithm for the matching problem, and comes to the fastest algorithm until now.
+
+		Besides, the results in the paper also solved a long-standing open question of, whether Lov\'asz's randomized algorithm on testing whether a graph has a perfect matching in $O(n^\omega)$ time, can be extended to an algorithm finding a perfect matching.
+
+		Since there is only a little difference between the algorithms for bipartite graphs and general graphs, the algorithm for general graphs will be focused on, while the one for bipartite graphs will only be mentioned briefly.
+	\end{abstract}
+
+	\section{Introduction}
+
+		The definitions of matchings, perfect matchings and maximum matchings are omitted as they are not relevant to the main topic. For the purpose of convenience, let $n = |V|$, $m = |E|$.
+
+		The best-known and also earliest algorithm to solve matching problems on general graphs is the Blossom algorithm of Edmonds  . It has $O(nm) = O(n^3)$ running time for the naive implement, and $O(n^{2.5})$  time when optimized.
+
+		On the other hand, Lov\'asz  provides an randomized algorithm which tests whether a given graph has a perfect matching in $O(n^\omega)$ time. In addition, more properties of a given graph can be found out in $O(n^\omega)$ time, such as the size of its maximum matchings, or even finding a maximum matching.
+
+		\begin{theorem}
+			$2 \le \omega < 2.38$.
+		\end{theorem}
+
+		I'm going to introduce how to construct a perfect or maximum matching of a given graph in $O(n^\omega)$ time in expectation. Besides, after slightly modifying, the problem on bipartite graphs can be solved easily via the LUP factorization algorithm of Hopcroft and Bunch  .
+
+		My report will be divided into the following parts in order: first basic knowledges of LA, then a simple approach finding a perfect matching via Gaussian elimination, then how to find a perfect matching in $O(n^\omega)$ time, and finally the conclusion and open problems. In addition, part of the proofs will be shown in the appendix.
+	
+	\section{Preliminaries}
+
+		\subsection{Tutte Matrix}
+
+			\begin{definition}[Tutte matrix]
+				Let $G=(V,E)$ be a undirected graph. The \normalfont{Tutte} Matrix of $G$ is a $n$-order square matrix $\tilde A(G)$ such that
+
+				$$ \tilde A(G)_{ij} = \left\{ \begin{aligned} x_{ij} & \quad & i<j,\,\; (i,j)\in E \\ -x_{ij} & \quad & i > j,\; (i,j) \in E \\ 0 & \quad & \text{otherwise}\end{aligned} \right. $$
+			\end{definition}
+
+			Where $x_{ij}$ is a variable, thus there are exactly $m$ variables in $\tilde A(G)$.
+
+			Without ambiguity, $\tilde A(G)$ is abbreviated as $\tilde A$ below.
+
+			\begin{theorem}[Tutte]
+				$G$ has a perfect matching iff $\det \tilde A \neq 0$.
+				\label{tutte}
+			\end{theorem}
+
+			\begin{theorem}[Lov\'asz]
+				The size of the maximum matching of $G$ equals to half of $\mathrm{rank}\, \tilde A$.
+			\end{theorem}
+
+			The existing algorithms on matrices are usually for constant matrices. For the purpose of convenience, it is OK to simply choose a number field, for example, the residual system modulo a prime number $p$, and replace all variables in $\tilde A$ by a random number in the field. The matrix obtained by substituting all variables is denoted as $A(G)$ below.
+
+			\begin{theorem}
+				The rank of $A(G)$ is at most twice of the size of the maximum matching $G$, and the equality holds with probability at least $1 - \frac n p$.
+			\end{theorem}
+
+			Usually $p$ is much larger than $n$ in pratice, thus the probability of error is negligible. Besides it is possible to reduce the probability by simplying running the algorithm repeatedly. Obviously, due to this theorem it is possible to test if a given graph has a perfect matching in $O(n^\omega)$ time, and even finding out the size of the maximum matching of the graph.
+
+			Next we will focus on approaches to find a perfect matching. Accroding to the theorem before, with high probability $A(G)$ is invertible if $G$ has a perfect matching, and further we have the following theorem:
+
+			\begin{theorem}[Rabin, Vazirani]
+				With high probability, $ A_{j, i} ^{-1} \ne 0 $ iff $ G - \{v_i, v_j\} $ has a perfect matching.
+				\label{allowed}
+			\end{theorem}
+
+			In other words, if there are two vertices $v_i, v_j$ such that $(v_i, v_j) \in E$, and $A_{j, i}^{-1} \ne 0$, then there is a perfect matching including $(v_i, v_j)$ with high probability. The edges that appears in some perfect matchings are denoted as \emph{allowed edges} below.
+
+			For the purpose of convenience, ``with high probability'' is omitted without special instructures.
+
+		\subsection{Maximum Matchings vs. Perfect Matchings}
+			
+			\begin{theorem}[Rabin, Vazirani; Ibarra, Moran]
+				The problem of finding a maximum matching can be reduced to the problem of finding a perfect matching in randomized time $O(n^\omega)$.
+				\label{maximum}
+			\end{theorem}
+
+			This theorem is significant as it transforms the problem of finding a maximum matching to the problem of finding a perfect matching, which is much simpler.
+
+			Because of the theorem, we will only focus on the problem of finding a perfect matching.
+
+	\section{Finding out a Perfect Matching}
+		\subsection{An Algorithm via Gaussian Elimination}
+
+			There is an obvious algorithm according to {\bfseries Theorem \ref{allowed}}: try to find an edge $(v_i, v_j)$ repeatedly, and if $A(G)^{-1}_{j, i} \ne 0$, then delete $v_i$ and $v_j$ from the graph and add $(v_i, v_j)$ into the matching. After that, just calculate $A(G)^{-1}$ again in $O(n^\omega)$ time.
+
+			It remains to be an open problem whether $\omega = 2$, but most people believe that $\omega > 2$. Thus the algorithm has $O(n (n^2 + n^\omega)) = O(n^{\omega + 1})$ running time.
+			
+			The bottleneck of this algorithm is re-calculating $A(G)^{-1}$ after deleting two rows and columns from $A(G)$. In fact, it is possible to update $A(G)$ in just $O(n^2)$ time using the following theorem:
+
+			\begin{theorem} [Elimination Theorem]
+				Let
+				$$ A = \begin{bmatrix}
+					a_{1, 1} & v^T \\
+					u & B
+				\end{bmatrix} \quad A^{-1} = \begin{bmatrix}
+					\hat a^{1, 1} & \hat v^T \\
+					\hat u & \hat B
+				\end{bmatrix} , $$
+				where $\hat a_{1, 1} \ne 0$. Then
+				$$ B^{-1} = \hat B - \frac {\hat u \hat v^T} {\hat a_{1, 1}}. $$
+				\label{elimination}
+			\end{theorem}
+
+			The elimination theorem solves the situation to eliminate the first row and column. In fact, the theorem holds true for any single row and column, so we need to calculate $A(G)^{-1}$ only once at the beginning of the algorithm. When deleting $v_i$ and $v_j$ from the graph, we can simply run the $O(n^2)$ elimination for two times, thus getting the new $A(G)^{-1}$.
+
+			\begin{theorem}
+				The algorithm above finds a perfect matching in $O(n^3)$ time.
+			\end{theorem}
+
+		\subsection{Matching Verification}
+
+			Now we focus on how to reduce the running time to $O(n^\omega)$. The bottleneck part is Gaussian elimination, so we can try to replace the simple $O(n^3)$ elimination with a better one.
+
+			First consider a simplified problem as the elimination without pivoting, i.e. it holds true after eliminating the first $i - 1$ columns, that $a_{i, i}$ is always nonzero.
+
+			There is a technique called lazy elimination, which means that we need not run the $O(n^2)$ modification each step, but do several times of modification together once of a time.
+
+			The algorithm can be described as following:
+
+			\begin{algorithm}
+				\caption{Gaussian Elimination without Pivoting}
+				\label{simple}
+
+				\begin{algorithmic}[1]
+					\Function {Simple-Elimination}{$A$ : Matrix}
+						\For {$i = 1 \to n$}
+							\State {lazily eliminate the $i$-th row and $i$-th column of $A$}
+							\State $j \gets \text{the largest integer such that } 2^j | i$
+							\State {UPDATE($\{i + 1, \dots, i + 2^j\}$, $\{i + 1, \dots, n\}$)}
+							\State {UPDATE($\{i + 2^j + 1, \dots, n\}$, $\{i + 1, i + 2^j\}$)}
+						\EndFor
+					\EndFunction
+				\end{algorithmic}
+
+			\end{algorithm}
+
+			Where UPDATE($R, C$) denotes to apply the modification on rows $R$ and columns $C$. The procedure is equivalent to combine several vectors $u_i$ and $v_i$ into matrices $U$ and $V$, and then calculate $UV$, thus it can be done in $O(n^\omega)$ time using fast matrix multiplication.
+
+			It can be easily shown that this algorithm has the same complexity as the UPDATE procedure, i.e. it has running time $O(n^\omega)$. Actually the algorithm can be considered as a simplified version of the classic fast LU decomposition algorithm  . The main purpose to introduce this algorithm is to prove the following theorem:
+
+			\begin{theorem}
+				Let $G$ have a perfect matching. Let $M$ be any matching of $G$, then it is possible to find a maximal subset $M' \subset M$ in $O(n^\omega)$ time, such that $M'$ is the subset of some perfect matching.
+				\label{submatch}
+			\end{theorem}
+		
+		\subsection{The Algorithm for Bipartite Graphs}
+			
+			Firstly, the definition of $\tilde A$ should be slightly changed for bipartite graphs:
+
+			\begin{definition}[Tutte matrix on bipartite graphs]
+				Let  $G=(\{U, V\},E)$ be a bipartite graph. Let $n = |U|$, $m = |V|$, then the Tutte matrix of $G$ is a $n \times m$ matrix such that:
+
+				$$ \tilde A(G)_{i,j} = \left\{ \begin{aligned} x_{i,j} & \quad & (u_i, v_j)\in E \\ 0 & \quad & \text{otherwise}\end{aligned} \right. $$
+			\end{definition}
+
+			\begin{theorem}[Tutte]
+				The size of the maximum matching of $G$ equals to $\mathrm{rank}\, \tilde A(G)$.
+			\end{theorem}
+			
+			Similarly, let $A(G)$ denote the matrix obtained by randomly substituting all variables.
+
+			The algorithm before only works with no pivoting, thus it can not be used to find a perfect matching of given pipartite graph directly. However, by the help of the classic LU decomposition algorithm  , it is still possible to eliminate $A(G)$ in $O(n^\omega)$ time, which solves the problem.
+		
+		\subsection{The Algorithm for General Graphs}
+
+			\subsubsection{Basic Ideas}
+
+				For general graphs, we need to eliminate two rows and columns in $A(G)^{-1}$ each time a match $(v_i, v_j)$ is found. Therefore, the lazy elimination technique does not work anymore.
+
+				A basic idea is to partition $G$ into several subgraphs which are easier to find a perfect matching, and solve the problem for each subgraph recursively.
+
+				\begin{algorithm}
+					\caption{Finding a Perfect Matching Recursively}
+
+					\begin{algorithmic}[1]
+						\Function {General-Matching}{$G$}
+							\State {Find a match $M$ greedily, such that $|M| \ge \frac n 4$}
+							\State {Call the procedure described in {\bfseries Theorem \ref{submatch}} to find a maximal sub-match $M'$}
+							\If {$|M'| \ge \frac n 8$}
+								\State {Let $G'$ be the induced subgraph of the uncovered vertices, and call \textsc{General-Matching}($G'$) recursively}
+							\Else
+								\State {Call \textsc{Partition}($G'$)}
+							\EndIf
+						\EndFunction
+					\end{algorithmic}
+				\end{algorithm}
+
+				Next consider how to implement the \textsc{Partition} procedure.
+			
+			\subsubsection{Canonical Partition}
+				
+				A graph $G$ is called \emph{elementary}, if $G$ has a perfect matching, and all allowed edges of $G$ forms a connected spanning subgraph of $G$.
+
+				Define a relation $\sim$ on set $V$, such that $u \sim v$ iff either $u = v$, or $G - \{u, v\}$ has no perfect matching.
+				
+				The following theorem is due to Lov\'asz  :
+
+				\begin{theorem}
+					If $G$ is elementary, then $\sim$ defined on $G$ is a equivalence relation.
+				\end{theorem}
+
+				Let $P(G)$ denote the set of equivalence classes of $\sim$, the so-called \emph{canonical partition} of $G$.
+
+				According to {\bfseries Theorem \ref{tutte}} (Tutte's Theorem), the canonical partition of $G$ can be easily obtained from $A(G)^{-1}$.
+
+				\begin{theorem}
+					Let $G$ be an elementary graph, let $S \in P(G)$ with $|S| \ge 2$, and let $C$ be any connected component of $G - S$. Then
+
+					\begin{enumerate}
+						\item The graph $G'_S$ obtained by contracting each component in $G - S$ into a single vertex is elementary.
+						\item $\forall v \in V(C), C - \{v\}$ has a perfect matching.
+						\item The graph $C'$ obtained from $G[S \cup V(C)]$ by contracting $S$ into a artificial vertex $s$ is elementary.
+						\item $P(C') = \{\{s\}\} \cup \{T \cap V(C) | T \in P(G)\}$.
+					\end{enumerate}
+
+					\label{canonical}
+				\end{theorem}
+
+				From the theorem, the number of components of $G - S$ equals to $|S|$. Moreover, it holds true for any perfect matching of $G$, that different vertices in $S$ matches with vertices from different components of $G - S$, since there are no allowed edges between two vertices in $S$. Therefore, it is obvious that we can construct a perfect matching of $G$ from any perfect matching between $S$ and components of $G - S$.
+
+				We can use the algorithm mentioned above to find a perfect matching between $S$ and components of $G - S$. In other words, it is possible to decomposite the problem of perfect matchings into several smaller problems by the help of bipartite matching.
+
+				\begin{algorithm}
+					\caption{The Part Using Canonical Partition}
+					\label{partition}
+
+					\begin{algorithmic}[1]
+						\Function {Partition} {$G$}
+							\If {$G$ is not elementary}
+								\State {Decomposite $G$ into several elementary subgraphs, then call \textsc{Partition} for each subgraph}
+							\Else
+								\State {Let $S \in P(G)$ with $|S| = k \ge 2$. Let $C_1, \dots, C_k$ denotes each connected components $G - S$}
+								\State {Assume that $C_1$ is the largest component, and define $C_1'$ in the same way {\bfseries Theorem \ref{canonical}} describes, then calculate $P(C_1')$ via {\bfseries Theorem \ref{canonical}}}
+								\If {$P(C_1')$ contains a non-trivial class}
+									\State {Call \textsc{Partition}($C_1'$)}
+								\Else
+									\State {Call \textsc{General-Matching}($C_1'$)}
+								\EndIf
+								\State {Let $M_1'$ denotes the matching found, let $c$ denotes the vertex matching to $s$}
+								\State {Choose a vertex $v$ as a neighbor of $c$ in $S$ arbitarily, and find out a perfect matching containing $(v, c)$ between $S$ and components of $G - S$, then add the chosen edges into the global matching}
+								\State {For each $C_i$, remove the vertex matched with some vertex in $S$, then find a perfect matching for the remaining part recursively}
+							\EndIf
+						\EndFunction
+					\end{algorithmic}
+				\end{algorithm}
+
+				Notice that in the algorithm, we treat the largest component specially. The purpose of that is to reduce the size of sub-problem effectively.
+				
+				\begin{lemma}
+					In {\bfseries Algorithm \ref{partition}} , the size of the sub-problem solved recursively is at most $\frac 7 9$ of the original problem.
+					\label{frac79}
+				\end{lemma}
+
+				Actually, the original paper introduced the dynamic graph algorithm  to ensure the complexity of the partition. As it is too complicated, and it has little relavance to our main topic, its details are omitted here.
+
+				\begin{theorem}
+					The algorithm above finds a perfect matching of $G$ in $O(n^\omega)$ time.
+				\end{theorem}
+
+	\section{Conclusion}
+
+		In the original paper, the authors presented their results, i.e. a new algorithm which finds a perfect matching in $O(n^\omega)$ time, and even finds a maximum matching in $O(n^\omega)$ time accroding to {\bfseries Theorem \ref{maximum}}. In addition, they mentioned that they had found an algorithm to find a maximum matching of a planar graph in $O(n^{\omega / 2})$ time, which is presented in their another paper, but it is omitted because of its little relavance to our main topic.
+
+		At the end of the paper, the authors raised an open problem: the algorithm for general graphs have a complicated partition step, which is not necessary for bipartite graphs. Is it possible to simplify the algorithm so that the partition part can be removed?
+		
+		In fact, I have not found relevant surveys or materials to this problem. In my opinion, the answer is probably false, because the vertices in bipartite graphs are naturally divided into two disjoint sets, while these in general graphs are not. Thus the partition step is very likely to be necessary, even if not, there should still be a similar procedure to replace it.
+
+	\section*{References}
+		\medskip
+		
+		{ \small
+		[1] M. Mucha and P. Sankowski, "Maximum matchings via Gaussian elimination," {\it 45th Annual IEEE Symposium on Foundations of Computer Science}, 2004, pp. 248-255, doi: 10.1109/FOCS.2004.40.
+
+		[2] J. Edmonds. Paths, trees and flowers. {\it Canadian Journal of Mathematics}, 17:449-467, 1965.
+
+		[3] S. Micali and V. V. Vazirani. An $O(\sqrt{|V|}|E|)$ algorithm for finding maximum matching in general graphs. In {\it Proceedings of the twenty first annual IEEE Symposium on Foundations of Computer Science}, pages 17-27, 1980.
+
+		[4] L. Lov\'asz. On determinants, matchings and random algorithms. In L. Budach, editor, {\it Fundamentals of Computation Theory}, pages 565-574. Akademie-Verlag, 1979.
+
+		[5] M. O. Rabin and V. V. Vazirani. Maximum matchings in general graphs through randomization. {\it Journal of Algorithms}, 10:557-567, 1989.
+
+		[6] W. T. Tutte. The factorization of linear graphs. {\it J. London Math. Soc.}, 22:107-111, 1947.
+
+		[7] O. H. Ibarra and S. Moran. Deterministic and probabilistic algorithms for maximum bipartite matching via fast matrix multiplication. {\it Inf. Process. Lett.}, 13(1):12-15, 1981.
+
+		[8] J. Bunch and J. Hopcroft. Triangular factorization and inversion by fast matrix multiplication. {\it Mathematics of Computation}, 28(125):231-236, 1974.
+
+		[9] J. Holm, K. de Lichtenberg, and M. Thorup. Poly-logarithmic deterministic fully-dynamic algorithms for connectivity, minimum spanning tree, 2-edge, and biconnectivity. {\it J. ACM}, 48(4):723-760, 2001.
+		}
+		
+		% \begin{thebibliography} {99}
+		% 	\bibitem M. Mucha and P. Sankowski. \emph{Maximum matchings via Gaussian elimination}, 2004.
+		% 	\bibitem J. Edmonds. \emph{Paths, trees and flowers}, 1965.
+		% 	\bibitem S. Micali and V. V. Vazirani. \emph{An $O(|V||E|)$ algorithm for finding maximum matching in general graphs}, 1980.
+		% 	\bibitem L. Lov\'asz. \emph{On determinants, matchings and random algorithms}, 1979.
+		% 	\bibitem M. O. Rabin and V. V. Vazirani. \emph{Maximum matchings in general graphs through randomization}, 1989.
+		% 	\bibitem W. T. Tutte. \emph{The factorization of linear graphs}, 1947.
+		% 	\bibitem O. H. Ibarra and S. Moran. \emph{Deterministic and probabilistic algorithms for maximum bipartite matching via fast matrix multiplication}, 1981.
+		% 	\bibitem J. Bunch and J. Hopcroft. \emph{Triangular factorization and inversion by fast matrix multiplication}, 1974.
+		% 	\bibitem J. Holm, K. de Lichtenberg, and M. Thorup. \emph{Poly-logarithmic deterministic fully-dynamic algorithms for connectivity, minimum spanning tree, 2-edge, and biconnectivity}, 2001.
+		% \end{thebibliography}
+	
+	\section*{Appendix : Part of the Proofs}
+
+		{\bfseries Theorem \ref{tutte}.} (Tutte)
+		\emph {$G$ has a perfect matching iff $\det \tilde A \neq 0$.}
+
+		\begin{Proof} \normalfont {
+			Consider the definition of the determinant of a matrix:
+
+			$$ \det \tilde A = \sum_{\pi} (-1)^{\mathrm{sgn}(\pi)} \prod_{k} \tilde A _{k, \pi(k)} $$
+
+			For any non-zero item on the right of the equation, the corresponding permutation $\pi$ always satisfies that $\forall k, (k, \pi_k) \in E$. Let us denote the inverse permutation as $\pi^{-1}$, then the item corresponding to it is also non-zero.
+
+			If $\pi$ has a rotation of odd order, then the corresponding item of $\pi$ and $\pi^{-1}$ are certainly opposite. Thus only these permutations without rotations of odd order will be added to the determinant.
+
+			If the determinant is non-zero, it means that $G$ has a even-cycle covering, thus $G$ has a perfect matching, and vice versa.
+			
+			$\mathcal{Q.E.D.}$}
+		\end{Proof}
+
+		{\bfseries Theorem \ref{elimination}.} (Elimination Theorem)
+		\emph {Let}
+		$$ A = \begin{bmatrix}
+			a_{1, 1} & v^T \\
+			u & B
+		\end{bmatrix} \quad A^{-1} = \begin{bmatrix}
+			\hat a^{1, 1} & \hat v^T \\
+			\hat u & \hat B
+		\end{bmatrix} , $$
+		\emph {where $\hat a_{1, 1} \ne 0$. Then}
+		$$ B^{-1} = \hat B - \frac {\hat u \hat v^T} {\hat a_{1, 1}}. $$
+		
+		\begin{Proof} \normalfont {
+			Since $A A^{-1} = I_n$, we have
+			$$ \begin{bmatrix}
+				a_{1, 1} \hat a_{1, 1} + v^T u & a_{1, 1} \hat v^T + v^T \hat B \\
+				u \hat a_{1, 1} + B \hat u & u \hat v^T + B \hat B
+			\end{bmatrix} = \begin{bmatrix}
+				1 & 0 \\ 0 & I_{n - 1}
+			\end{bmatrix} $$
+
+			Further we get
+			$$ \begin{aligned} & B(\hat B - \frac {\hat u \hat v^T} {\hat a_{1, 1}}) = I_{n - 1} - u \hat v^{T} - \frac {B \hat u \hat v^T} {\hat a_{1, 1}} \\
+			& = I_{n - 1} - u \hat v^T + \frac {u \hat a_{1, 1} \hat v^T} {\hat a_{1, 1}} = I_{n - 1} - u \hat v^T + u \hat v^T = I_{n - 1} \end{aligned} $$
+
+			$\mathcal{Q.E.D.}$}
+		\end{Proof}
+
+		{\bfseries Theorem \ref{submatch}.} \emph {
+			Let $G$ have a perfect matching. Let $M$ be any matching of $G$, then it is possible to find a maximal subset $M' \subset M$ in $O(n^\omega)$ time, such that $M'$ is the subset of some perfect matching.}
+
+		\begin{Proof} \normalfont {
+			Without loss of generality, let $M = \{(v_1, v_2), (v_3, v_4), \dots, (v_{k - 1}, v_k)\}$, and the uncovered vertices are $v_{k + 1}, \dots, v_n$. Permute the columns of $A(G)^{-1}$ in the order of $v_2, v_1, v_4, v_3, \dots, v_{n - 1}, v_n$, while the order of rows remains unchanged.
+			
+			When running {\bfseries Algorithm \ref{simple}} , we can simply skip to the next column if $a_{i, i} = 0$. Then the rows and columns eliminated during the process just correspond to $M'$.
+
+			$\mathcal{Q.E.D.}$}
+		\end{Proof}
+
+		{\bfseries lemma.} \emph {
+			In {\bfseries Algorithm \ref{partition}} , the size of the sub-problem solved recursively is at most $\frac 7 9$ of the original problem.}
+
+		\begin{Proof} \normalfont {
+			Since $C_1$ is the largest component, we only need to prove that $|V(C_1')|$ is at most $\frac 7 9 n$.
+
+			If \textsc{Partition}($G$) is called by \textsc{General-Matching}($G$), then there is a match $\hat M$ of $G$ containing only unallowed edges, and spanning at least $\frac n 3$ vertices. Let $\hat V$ denote the set of these vertices.
+
+			Since the edges in $\hat M$ can never go across the partition, $C_1'$ contains no vertices in $\hat V$ when the partition stops. Notice that the largest component loses at lease 3 vertices, and gain exactly one \emph{artificial} vertex. Thus the number of vertices in $C_1'$ when the partition stops is at most $n - \frac 2 3 |\hat V| \le n - \frac 2 9 n = \frac 7 9 n$.
+			
+			$\mathcal{Q.E.D.}$}
+		\end{Proof}
+
+\end{document}
